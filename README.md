@@ -1,4 +1,4 @@
-# R utility functions
+# MATLAB utility functions
 
 This repository contains ASCII codes for use in MATLAB. You can principally open them in any text-editor, and copy the code into the Matlab console. Furthermore you can work directly from the console.
 
