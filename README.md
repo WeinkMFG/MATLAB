@@ -18,7 +18,7 @@ This program allows to perform an empirical orthogonal function (EOF) analysis o
 
 **Cite as:** Milker, Y., Rachmayani, R., Weinkauf, M. F. G., Prange, M., Raitzsch, M., Schulz, M., and Kučera, M. (2013) Global and regional sea surface temperature trends during Marine Isotope Stage 11. *Climate of the Past* 9: 2231–52. doi:10.5194/cp-9-2231-2013
 
-#Author
+# Author
 
 Manuel F. G. Weinkauf, Universite de Geneve, Departement des sciences de la Terre, 1205 Geneve, Switzerland; Manuel.Weinkauf@unige.ch
 
