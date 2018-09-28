@@ -1,0 +1,458 @@
+% MATLAB code to carry out empirical orthogonal function analysis
+% of unevenly spaced palaeoclimatic time series with implementation
+% of a randomisation procedure to test the effect of age model
+% uncertainty, proxy value uncertainty and robustness of the
+% EOF pattern with respect to random removal of a subset of records.
+
+% version 1.0, 10.07.2012
+
+% By Yvonne Milker, Manuel Weinkauf, Michal Kucera, Michael Schulz
+% MARUM, University of Bremen
+% Contact: mkucera@marum.de
+
+
+% Format of the data
+% For each record, you must prepare two tab-delimited text files.
+% The first file contains the age model (table of control points).
+% 	The first column lists the the depths in core.
+% 	The second column lists ages assigned to the control points.
+% The second file contains the proxy data.
+% 	The first column lists the the depths in core.
+% 	The second column lists proxy values for these depths.
+% Name the files according to the following convention:
+% 	age1.txt and sst1.txt for the first record,
+% 	age2.txt and sst2.txt for the second record, and so on. 
+
+% Set up the working directory in the line below (or do this
+% manually in the command window before starting the code).
+
+cd 'C:\MATLAB\data\records'
+
+% -------------------
+
+% Setting up the main parameters
+
+% In this part of the code you enter the analysis parameters.
+% Changes to other parts of the code will rarely be necessary.
+% The only change will arise in case you wish to keep more than
+% the first three EOFs (principal components).
+
+			% Setting the numeric value for automated data reading
+DatMin=1		% defines minimal numeric name for input data
+DatMax=48		% defines maximal numeric name for input data
+			% There must be a continuous set of files numbered from
+			% DatMin to DatMax without gap (i.e. for default values
+			% files age1.txt,age2.txt,...,age50.txt must exist.
+
+n=1000			% defines the desired number of replications of randomisation
+AGEUNC=5		% sets the maximum age uncertainty for each control point
+			% Keep in mind that ages will be randomised within the range
+			% (age-x/2) <= randomised age <= (age+x/2),
+			% the unit must correspond to the age unit in your data (ka, Ma).
+
+TEMPUNC=1		% sets the maximum uncertainty of proxy values
+			% Keep in mind that proxy values will be randomised within
+			% the range (proxy-x/2) <= randomised proxy <= (proxy+x/2),
+			% the unit must correspond to the proxy unit (centigrade, psu).
+
+StartAge=370		% sets the youngest age for the EOF analysis
+StopAge=430		% sets the oldest age for the EOF analysis
+Interval=1		% sets the interval for regular interpolation of all records
+			% at which the EOF will be carried out
+			% This should be selected so that the intervals will end exactly at StopAge!
+
+Jack=5			% sets the number of records to be withheld in each trial
+			% If you want to use all records set Jack=0.
+			
+% It is important that all values are chosen in a way that enables the analysis to be run. For instance
+% it must be assured that given the age range of the original data and the chosen AGEUNC, StartAge and
+% StopAge are chosen in a way that the resulting timeseries covers all possible randomised ages (i.e. it
+% must range at least from min(Age)-AGEUNC/2 to max(Age)+AGEUNC/2). Also, Jack must obviously be smaller
+% than the total number of records available. To test for all those limitations automatically is well nigh
+% impossible, so this must be performed by the user of the code. Whenever the code does not work as expected
+% the user is strictly encouraged first to check if some logical presumptions were violated by the parameters
+% chosen, before taking further steps.
+
+% -------------------
+
+% WARNING: PLEASE DO NOT CHANGE ANYTHING AFTER THIS POINT
+% UNLESS YOU KNOW WHAT YOU ARE DOING
+
+% Loading of datasets
+
+% Loading of age models; filenames must be of the form ageN.txt
+% with N as continuous integer ranging from DatMin to DatMax
+
+for k = DatMin : DatMax
+    DatName1 = sprintf('age%.0f.txt',k);
+    Dat{k - DatMin + 1} = dlmread(DatName1);
+end
+return;
+
+% Loading of proxy data; filenames must be of the form sstN.txt
+% with N as continuous integer ranging from DatMin to DatMax
+
+for i = DatMin : DatMax
+    DatName2 = sprintf('sst%.0f.txt',i);
+    Dat2{i - DatMin + 1} = dlmread(DatName2);
+end
+return;
+
+% -------------------
+
+% Initialisation of output variables
+
+PCA1S=[];
+PCA2S=[];
+PCA3S=[];
+
+PCA1L=[];
+PCA2L=[];
+PCA3L=[];
+
+PCA1E=[];
+PCA2E=[];
+PCA3E=[];
+
+NegCorr=[0 0 0 0 0 0];
+
+% -------------------
+
+% Begin of randomisation procedure 
+
+% Repeats the randomisation the desired times of replications n
+
+for trial=1:n
+
+	% Initialise PCA Matrix
+	PCA=zeros((((StopAge-StartAge)/Interval)+1),DatMax);
+
+	% Randomisation
+	for i=1:DatMax
+		k=[0 0];
+		ErrCount=0;
+		AgeDat=Dat{i};
+		TempDat=Dat2{i};
+
+		% Randomises all age data by AGEUNC
+		% The loop rejects randomised age models
+		% which contain an age inversion.
+		while min(k)~=1
+			AGERAND=AgeDat(:,2)+(AGEUNC.*rand((size(AgeDat,1)),1)-AGEUNC/2);
+		 	for j=1:(length(AGERAND)-1)
+				if AGERAND(j)<AGERAND(j+1)
+					k(j)=1;
+				else
+					k(j)=0;
+				end;
+			end;
+			ErrCount=ErrCount+1;
+
+			% This clause causes the code to halt if too many
+			% age inversions are found.
+			if ErrCount>1000
+				error('No consistent age model retrieved after 1000 trials, please reduce AGEUNC')
+			end;
+		end;
+
+		% Creates new matrix with depths and randomised ages
+		Rand1=[AgeDat(:,1) AGERAND];
+
+		% Randomises all proxy data by TEMPUNC
+		SSTRAND=TempDat(:,2)+(TEMPUNC.*rand((size(TempDat,1)),1)-TEMPUNC/2);
+
+		% Creates new matrix with ages and randomised proxy values
+		Rand2=[TempDat(:,1) SSTRAND];
+
+		% Interpolates ages on the basis of the randomised age model
+		Ai=interp1(Rand1(:,1),Rand1(:,2),Rand2(:,1));
+
+		% Creates new matrix from interpolated ages and SST data
+		InterpolData=[Ai Rand2(:,2)];
+
+		% Creates vector with equally spaced ages
+		Ai2=StartAge:Interval:StopAge;
+		Ai2=Ai2.';
+
+		% Eliminates nan's from InterpolData
+		InterpolDataNAN=InterpolData(0== sum(isnan(InterpolData), 2), :);
+
+		% Interpolates proxy data on the basis of the ages given in vector Ai2
+		SSTi=interp1(InterpolDataNAN(:,1),InterpolDataNAN(:,2),Ai2);
+
+		% Standardises interpolated proxy data
+		SSTStand=zscore(SSTi(:,1));
+
+		% Adds standardised interpolated data to PCA matrix
+		PCA(:,i)=SSTStand;
+
+	end;
+	
+	% Jacknifing, randomly withhelds "Jack" number of columns
+	% from the PCA matrix
+	% If Jack=0, this loop is not executed!
+	for erase = 1:Jack
+		ColNum=size(PCA);
+		Er=randperm(ColNum(2),1);
+		PCA(:,Er)=[];
+	end;
+
+	% Performs a PCA on the jacknifed standardised interpolated proxy data
+	[COEFF,SCORE,latent]=princomp(PCA);
+
+	% Returns PCA loadings in correlation form
+	Loading=corr(PCA(:,:),SCORE(:,:));
+
+	% Calculates variance explained by individual PCs
+	variance=(latent/sum(latent))*100;
+
+	% Adds PCA values to results
+	% NOTE: only values for the first three PCs are being stored!
+	PCA1S=[PCA1S SCORE(:,1)];
+	PCA2S=[PCA2S SCORE(:,2)];
+	PCA3S=[PCA3S SCORE(:,3)];
+
+	PCA1L=[PCA1L Loading(:,1)];
+	PCA2L=[PCA2L Loading(:,2)];
+	PCA3L=[PCA3L Loading(:,3)];
+
+	PCA1E=[PCA1E variance(1)];
+	PCA2E=[PCA2E variance(2)];
+	PCA3E=[PCA3E variance(3)];
+
+	% trial
+	% If you want to follow the progress, remove "%" in line above!
+
+end;
+
+% Corrects PC scores by comparison of each score vector with the mean of all score vectors.
+% This is essential because the sign of the scores on the axes can be reversed.
+% Negatively correlated vectors will be flipped.
+% NOTE: this technique only works if there is a consensus
+% direction to each PC. Where the randomisation has
+% created large differences among the data, it may happen that the
+% procedure fails, because the scores of that PC for each trial are too different.
+% This is not a problem, it just means that this PC does not carry any signal.
+
+PCA1S=PCA1S.'
+M1Ax=mean(PCA1S)
+M1Ax=M1Ax.'
+PCA1S=PCA1S.'
+	
+Size=size(PCA1S);
+for t=1:Size(2)
+	RHO=corr(M1Ax,PCA1S(:,t));
+	if RHO<0
+		PCA1S(:,t)=(PCA1S(:,t))*-1;
+		NegCorr(1)=NegCorr(1)+1;
+	end;
+end;
+NegCorr(1)=NegCorr(1)/Size(2)
+
+
+PCA2S=PCA2S.'
+M2Ax=mean(PCA2S)
+M2Ax=M2Ax.'
+PCA2S=PCA2S.'
+	
+Size=size(PCA2S);
+for t=1:Size(2)
+	RHO=corr(M2Ax,PCA2S(:,t));
+	if RHO<0
+		PCA2S(:,t)=(PCA2S(:,t))*-1;
+		NegCorr(2)=NegCorr(2)+1;
+	end;
+end;
+NegCorr(2)=NegCorr(2)/Size(2)
+
+
+PCA3S=PCA3S.'
+M3Ax=mean(PCA3S)
+M3Ax=M3Ax.'
+PCA3S=PCA3S.'
+	
+Size=size(PCA3S);
+for t=1:Size(2)
+	RHO=corr(M3Ax,PCA3S(:,t));
+	if RHO<0
+		PCA3S(:,t)=(PCA3S(:,t))*-1;
+		NegCorr(3)=NegCorr(3)+1;
+	end;
+end;
+NegCorr(3)=NegCorr(3)/Size(2)
+
+
+% Corrects loadings by comparison of each loading vector with the mean of all loading vectors
+% Negatively correlated vectors will be flipped.
+
+PCA1L=PCA1L.'
+	M1Ay=mean(PCA1L)
+	M1Ay=M1Ay.'
+	PCA1L=PCA1L.'
+	
+
+Size=size(PCA1L);
+for t=1:Size(2)
+	RHO=corr(M1Ay,PCA1L(:,t));
+	if RHO<0
+		PCA1L(:,t)=(PCA1L(:,t))*-1;
+		NegCorr(4)=NegCorr(4)+1;
+	end;
+end;
+NegCorr(4)=NegCorr(4)/Size(2)
+
+
+PCA2L=PCA2L.'
+M2Ay=mean(PCA2L)
+M2Ay=M2Ay.'
+PCA2L=PCA2L.'
+	
+Size=size(PCA2L);
+for t=1:Size(2)
+	RHO=corr(M2Ay,PCA2L(:,t));
+	if RHO<0
+		PCA2L(:,t)=(PCA2L(:,t))*-1;
+		NegCorr(5)=NegCorr(5)+1;
+	end;
+end;
+NegCorr(5)=NegCorr(5)/Size(2)
+
+
+PCA3L=PCA3L.'
+M3Az=mean(PCA3L)
+M3Az=M3Az.'
+PCA3L=PCA3L.'
+	
+Size=size(PCA3L);
+for t=1:Size(2)
+	RHO=corr(M3Az,PCA3L(:,t));
+	if RHO<0
+		PCA3L(:,t)=(PCA3L(:,t))*-1;
+		NegCorr(6)=NegCorr(6)+1;
+	end;
+end;
+NegCorr(6)=NegCorr(6)/Size(2)
+
+%-------------------
+
+% Calculates the results of the randomisation
+
+% Transposes matrices
+
+PCA1S=PCA1S.';
+PCA2S=PCA2S.';
+PCA3S=PCA3S.';
+
+PCA1L=PCA1L.';
+PCA2L=PCA2L.';
+PCA3L=PCA3L.';
+
+PCA1E=PCA1E.';
+PCA2E=PCA2E.';
+PCA3E=PCA3E.';
+
+% Calculates the means of scores, loadings and variances of each Principal Component
+
+MSc1=mean(PCA1S);
+MSc2=mean(PCA2S);
+MSc3=mean(PCA3S);
+
+MSc1=MSc1.';
+MSc2=MSc2.';
+MSc3=MSc3.';
+
+ML1=mean(PCA1L);
+ML2=mean(PCA2L);
+ML3=mean(PCA3L);
+
+ML1=ML1.';
+ML2=ML2.';
+ML3=ML3.';
+
+MV1=mean(PCA1E);
+MV2=mean(PCA2E);
+MV3=mean(PCA3E);
+
+% Sorts the data and calculates the 95% confidence interval
+
+CISc1=sort(PCA1S);
+CISc2=sort(PCA2S);
+CISc3=sort(PCA3S);
+
+CIL1=sort(PCA1L);
+CIL2=sort(PCA2L);
+CIL3=sort(PCA3L);
+
+CIV1=sort(PCA1E);
+CIV2=sort(PCA2E);
+CIV3=sort(PCA3E);
+
+LowCI=round((n/100)*5);
+UpCI=round((n/100)*95);
+
+ConfminS1=CISc1(LowCI,:);
+ConfminS2=CISc2(LowCI,:);
+ConfminS3=CISc3(LowCI,:);
+
+ConfminL1=CIL1(LowCI,:);
+ConfminL2=CIL2(LowCI,:);
+ConfminL3=CIL3(LowCI,:);
+
+ConfminV1=CIV1(LowCI,:);
+ConfminV2=CIV2(LowCI,:);
+ConfminV3=CIV3(LowCI,:);
+
+ConfmaxS1=CISc1(UpCI,:);
+ConfmaxS2=CISc2(UpCI,:);
+ConfmaxS3=CISc3(UpCI,:);
+
+ConfmaxL1=CIL1(UpCI,:);
+ConfmaxL2=CIL2(UpCI,:);
+ConfmaxL3=CIL3(UpCI,:);
+
+ConfmaxV1=CIV1(UpCI,:);
+ConfmaxV2=CIV2(UpCI,:);
+ConfmaxV3=CIV3(UpCI,:);
+
+ConfminS1=ConfminS1.';
+ConfminS2=ConfminS2.';
+ConfminS3=ConfminS3.';
+
+ConfminL1=ConfminL1.';
+ConfminL2=ConfminL2.';
+ConfminL3=ConfminL3.';
+
+ConfmaxS1=ConfmaxS1.';
+ConfmaxS2=ConfmaxS2.';
+ConfmaxS3=ConfmaxS3.';
+
+ConfmaxL1=ConfmaxL1.';
+ConfmaxL2=ConfmaxL2.';
+ConfmaxL3=ConfmaxL3.';
+
+% Creates new matrices containing the mean, and the upper and lower values for the
+% 95% confidence interval for Scores, Loadings and Variances for the three first PCs.
+
+MSc=[MSc1 ConfminS1 ConfmaxS1 MSc2 ConfminS2 ConfmaxS2 MSc3 ConfminS3 ConfmaxS3]
+ML=[ML1 ConfminL1 ConfmaxL1 ML2 ConfminL2 ConfmaxL2 ML3 ConfminL3 ConfmaxL3]
+MV=[MV1 ConfminV1 ConfmaxV1 MV2 ConfminV2 ConfmaxV2 MV3 ConfminV3 ConfmaxV3]
+
+
+% Exports data as txt files.
+% If jack-knifing has been applied, the loadings cannot be used, because
+% some of the records may have been withheld too many times.
+
+% Change the file name (and file path) if needed!
+
+save 'MS.txt' MSc -ASCII
+save 'ML.txt' ML -ASCII
+save 'MV.txt' MV -ASCII
+
+
+% Exports a data set showing how many PCA Scores (columns 1-3) and Loadings (columns 4-6)
+% had to be flipped because they were negatively correlated with mean of all PCs.
+% Results are given as fraction of records to be flipped, multiply with 100 to get per cent values!
+
+save 'NegCorr.txt' NegCorr -ASCII
+
+disp ('EOF script has terminated')
