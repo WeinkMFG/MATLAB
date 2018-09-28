@@ -20,7 +20,7 @@ This program allows to perform an empirical orthogonal function (EOF) analysis o
 
 # Author
 
-Manuel F. G. Weinkauf, Universite de Geneve, Departement des sciences de la Terre, 1205 Geneve, Switzerland; Manuel.Weinkauf@unige.ch
+Manuel F. G. Weinkauf, Université de Genève, Departement of Earth Sciences, 1205 Geneva, Switzerland; [Manuel.Weinkauf@unige.ch](mailto:Manuel.Weinkauf@unige.ch); [https://sites.google.com/site/weinkaufmanuel/](https://sites.google.com/site/weinkaufmanuel/); [http://www.unige.ch/sciences/terre/people/personal_pages/ManuelWeinkauf/ManuelWeinkauf.php](http://www.unige.ch/sciences/terre/people/personal_pages/ManuelWeinkauf/ManuelWeinkauf.php)
 
 
 
