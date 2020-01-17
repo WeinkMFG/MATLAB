@@ -2,7 +2,7 @@
 
 This repository contains ASCII codes for use in MATLAB. You can principally open them in any text-editor, and copy the code into the Matlab console. Furthermore you can work directly from the console.
 
-All codes in this repository are distributed under the [Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License](http://creativecommons.org/licenses/by-nc-sa/3.0/). For further information, please visit my [website](https://sites.google.com/site/weinkaufmanuel/).
+All codes in this repository are distributed under the [Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License](http://creativecommons.org/licenses/by-nc-sa/3.0/). For further information, please visit my [website](https://sites.google.com/view/manuel-f-g-weinkauf/home).
 
 # Description of functions
 

@@ -5,7 +5,7 @@
 %	Vangel, M. G. (1996) "Confidence intervals for a normal coefficient of variation"...
 %		The American Statistician 50 (1): 21-26.
 
-%Author: Manuel Weinkauf (Manuel.Weinkauf@unige.ch)
+%Author: Manuel Weinkauf (weinkaufmanuel@gmail.com)
 %Version: 1.0
 %Date: 14 November 2016
 
